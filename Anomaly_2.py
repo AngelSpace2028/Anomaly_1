@@ -9,14 +9,14 @@ def count_zeros_ones(data):
     ones = bits.count('1')
     return zeros, ones
 
-def create_byte_xor_best_variation(input_file, output_dir):
+def create_byte_xor_best_variation(input_file, output_file):
     """Create XOR variations per byte, compress, and save only the best variation."""
     with open(input_file, 'rb') as f:
         original_data = f.read()
 
-    base_name = Path(input_file).stem
-    xor_folder = os.path.join(output_dir, f"{base_name}_xor_output")
-    os.makedirs(xor_folder, exist_ok=True)
+    output_dir = os.path.dirname(output_file)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
     best_score = -1
     best_combined_data = None
@@ -45,15 +45,16 @@ def create_byte_xor_best_variation(input_file, output_dir):
 
     if best_combined_data is not None:
         meta = best_byte_pos.to_bytes(4, 'big') + best_xor_val.to_bytes(1, 'big')
-        with open(os.path.join(xor_folder, f"{base_name}_compressed.bin"), 'wb') as f:
+        with open(output_file, 'wb') as f:
             f.write(meta + best_combined_data)
         print(f"\nSaved compressed file with metadata at byte {best_byte_pos}, xor {best_xor_val}")
+        print(f"Output file: {output_file}")
         return 1
     else:
         print("No variation improved the compression.")
         return 0
 
-def extract_original_file(input_file, output_dir):
+def extract_original_file(input_file, output_file):
     """Extract original file using metadata and decompression."""
     with open(input_file, 'rb') as f:
         meta = f.read(5)
@@ -73,12 +74,14 @@ def extract_original_file(input_file, output_dir):
         print("Metadata byte position is out of bounds.")
         return 0
 
-    out_name = Path(input_file).stem + "_extracted.bin"
-    out_path = os.path.join(output_dir, out_name)
-    with open(out_path, 'wb') as f:
+    output_dir = os.path.dirname(output_file)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    with open(output_file, 'wb') as f:
         f.write(decompressed)
 
-    print(f"Extraction complete. Saved original file to: {out_path}")
+    print(f"Extraction complete. Saved original file to: {output_file}")
     return 1
 
 def main():
@@ -88,18 +91,19 @@ def main():
     option = input("Enter 1 or 2: ").strip()
 
     input_file = input("Enter input file path: ").strip()
-    output_dir = input("Enter output directory [default: current]: ").strip() or "."
-
+    
     if not os.path.isfile(input_file):
         print("File not found!")
         return
 
-    os.makedirs(output_dir, exist_ok=True)
-
     if option == "1":
-        result = create_byte_xor_best_variation(input_file, output_dir)
+        default_output = os.path.splitext(input_file)[0] + "_compressed.bin"
+        output_file = input(f"Enter output file path [default: {default_output}]: ").strip() or default_output
+        result = create_byte_xor_best_variation(input_file, output_file)
     elif option == "2":
-        result = extract_original_file(input_file, output_dir)
+        default_output = os.path.splitext(input_file)[0] + "_extracted.bin"
+        output_file = input(f"Enter output file path [default: {default_output}]: ").strip() or default_output
+        result = extract_original_file(input_file, output_file)
     else:
         print("Invalid option.")
         return
