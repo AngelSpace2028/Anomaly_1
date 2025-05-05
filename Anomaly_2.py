@@ -1,10 +1,12 @@
 import os
-import paq  # Ensure you have this module or replace with actual PAQ interface
 from pathlib import Path
+import paq  # Replace or mock this with actual PAQ module
 
 def count_zeros_ones(data):
-    bits = ''.join(f'{byte:08b}' for byte in data)
-    return bits.count('0'), bits.count('1')
+    """Efficiently count 0s and 1s in the binary representation of the data."""
+    ones = sum(byte.bit_count() for byte in data)
+    zeros = len(data) * 8 - ones
+    return zeros, ones
 
 def create_best_zero_one_variation(input_file, output_dir):
     with open(input_file, 'rb') as f:
@@ -12,7 +14,7 @@ def create_best_zero_one_variation(input_file, output_dir):
 
     base_name = Path(input_file).stem
     save_dir = os.path.join(output_dir, f"{base_name}_most_zeros_ones")
-    
+
     if os.path.isfile(save_dir):
         print(f"Error: '{save_dir}' is a file, not a directory.")
         return 0
@@ -23,7 +25,7 @@ def create_best_zero_one_variation(input_file, output_dir):
     best_file_name = ""
     total_bytes = len(original_data)
 
-    print("Evaluating variations for most zeros + ones...")
+    print("Evaluating XOR variations for each byte to find best compressible pattern...")
 
     for byte_pos in range(total_bytes):
         original_byte = original_data[byte_pos]
@@ -32,20 +34,22 @@ def create_best_zero_one_variation(input_file, output_dir):
             modified_data[byte_pos] = original_byte ^ xor_val
 
             zeros, ones = count_zeros_ones(modified_data)
-            score = zeros + ones
+            # Use absolute imbalance to prefer more 0s or 1s (for better compressibility)
+            score = abs(zeros - ones)
 
             if score > best_score:
                 best_score = score
-                best_data = bytes(modified_data)  # Ensure it's bytes for compression
+                best_data = bytes(modified_data)
                 best_file_name = f"{base_name}_byte{byte_pos:04d}_xor{xor_val:03d}.bin"
-                print(f"Improved: byte {byte_pos}, xor {xor_val} → score: {score}")
+                print(f"Improved: byte {byte_pos}, xor {xor_val} → 0s: {zeros}, 1s: {ones}, score: {score}")
 
     if best_data:
         out_path = os.path.join(save_dir, best_file_name)
         with open(out_path, 'wb') as f:
             f.write(paq.compress(best_data))
-        print(f"\nSaved best zero/one variation (compressed): {out_path}")
+        print(f"\nSaved best variation (compressed): {out_path}")
         return 1
+
     return 0
 
 def extract_paq_compressed_file(input_file, output_dir):
@@ -77,7 +81,7 @@ def extract_paq_compressed_file(input_file, output_dir):
 def main():
     print("\nXOR Variation Evaluator")
     print("=========================")
-    print("1. Save variation with most zeros + ones and compress (PAQ)")
+    print("1. Save XOR variation with max zero/one imbalance and compress (PAQ)")
     print("2. Extract (decompress) using PAQ")
     print("3. Exit")
 
